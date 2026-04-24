@@ -1,6 +1,6 @@
-# 🏦 Fake Financial Partner Service (Fake Bank)
+# 🏦 Self Bank - Dịch vụ Đối tác Tài chính
 
-Một dịch vụ backend độc lập được thiết kế để giả lập quy trình thẩm định và cấp vốn trả góp của các đối tác tài chính (ngân hàng, công ty tài chính). 
+**Self Bank** là một dịch vụ backend độc lập được thiết kế để giả lập quy trình thẩm định và cấp vốn trả góp của các đối tác tài chính (ngân hàng, công ty tài chính).
 
 Dự án này phục vụ môi trường **Kiểm thử Tích hợp (Integration Testing)**, giúp tách rời hệ thống E-commerce chính với logic của bên thứ ba, dễ dàng cho việc demo và mở rộng sau này.
 
