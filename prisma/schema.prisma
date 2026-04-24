@@ -1,0 +1,25 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model LoanApplication {
+  id             String   @id @default(uuid())
+  externalId     String?
+  customerName   String
+  cccd           String
+  phone          String
+  amount         Decimal
+  term           Int
+  status         String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  reasonCode     String?  // INSUFFICIENT_INCOME, BAD_CREDIT_HISTORY, EXISTING_LOAN_TOO_HIGH, MISSING_DOCUMENT, INVALID_INFORMATION
+  note           String?
+  cccdUrl        String
+  incomeProofUrl String?
+  contractUrl    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}

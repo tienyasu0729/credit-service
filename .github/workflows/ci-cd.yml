@@ -1,0 +1,53 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  # 1. Continuous Integration (CI)
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+    - name: Checkout source code
+      uses: actions/checkout@v4
+
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Prisma Generate
+      run: npx prisma generate
+
+    - name: Build TypeScript
+      run: npm run build
+
+  # 2. Continuous Deployment (CD)
+  deploy:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    # Chỉ deploy khi code được push/merge vào nhánh main hoặc master
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+    
+    steps:
+      - name: Trigger Render Deployment
+        # Kích hoạt deploy tự động trên Render qua Webhook (nếu có cấu hình)
+        env:
+          DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        if: ${{ env.DEPLOY_HOOK != '' }}
+        run: |
+          echo "Triggering deployment on Render..."
+          curl -X POST $DEPLOY_HOOK
+          echo "Deployment triggered successfully!"
