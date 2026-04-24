@@ -4,28 +4,67 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Quản trị Self Bank</title>
+  <meta name="description" content="Self Bank Admin Dashboard - Hệ thống quản trị hồ sơ vay">
   <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    /* Mobile-first: Table cuộn ngang trên màn hình nhỏ */
+    .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    /* Smooth transitions cho tất cả interactive elements */
+    a, button { transition: all 150ms ease-in-out; }
+    /* Ẩn scrollbar nhưng vẫn cuộn được */
+    .table-wrapper::-webkit-scrollbar { height: 4px; }
+    .table-wrapper::-webkit-scrollbar-track { background: #f1f5f9; }
+    .table-wrapper::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 2px; }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, a, button { transition: none !important; animation: none !important; }
+    }
+  </style>
 </head>
-<body class="bg-gray-50 min-h-screen font-sans text-gray-900">
-  <nav class="bg-indigo-600 text-white shadow-md">
+<body class="bg-slate-50 min-h-screen text-slate-900">
+
+  <!-- NAVBAR -->
+  <nav class="bg-indigo-700 text-white shadow-lg sticky top-0 z-40">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex items-center justify-between h-16">
-        <div class="flex items-center">
-          <a href="/admin" class="font-bold text-xl tracking-tight">Quản trị Self Bank™</a>
+      <div class="flex items-center justify-between h-14 sm:h-16">
+        <!-- Logo + Brand -->
+        <div class="flex items-center gap-3">
+          <!-- Bank icon (SVG, không dùng emoji) -->
+          <svg class="h-7 w-7 sm:h-8 sm:w-8 text-indigo-200 flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" />
+          </svg>
+          <a href="/admin" class="font-bold text-base sm:text-xl tracking-tight hover:text-indigo-100">
+            <span class="hidden xs:inline">Quản trị </span>Self Bank<span class="text-indigo-300">™</span>
+          </a>
         </div>
+        <!-- Badge môi trường - ẩn trên mobile cực nhỏ -->
+        <span class="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium bg-indigo-800 text-indigo-200 px-2.5 py-1 rounded-full border border-indigo-600">
+          <span class="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
+          Môi trường kiểm thử
+        </span>
       </div>
     </div>
   </nav>
 
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+  <!-- MAIN CONTENT -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
     <%- body %>
   </main>
 
-  <footer class="text-center text-gray-500 text-sm py-4 mt-8">
-    &copy; 2025 Self Bank - Dịch vụ Đối tác Tài chính - Môi trường Kiểm thử Tích hợp
+  <!-- FOOTER -->
+  <footer class="border-t border-slate-200 bg-white mt-8">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+      <p class="text-center text-slate-500 text-xs sm:text-sm">
+        &copy; 2025 Self Bank &mdash; Dịch vụ Đối tác Tài chính &mdash; Môi trường Kiểm thử Tích hợp
+      </p>
+    </div>
   </footer>
 
-  <!-- Toast Container -->
-  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-3"></div>
+  <!-- TOAST CONTAINER (bottom-right trên desktop, bottom-center trên mobile) -->
+  <div id="toast-container" class="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-5 sm:w-96 z-50 flex flex-col gap-2"></div>
+
 </body>
 </html>
