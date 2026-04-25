@@ -22,7 +22,7 @@ export const REASON_CODE_LABELS: Record<string, string> = {
 export const getDashboard = async (req: Request, res: Response) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
-    const limit = 10;
+    const limit = 5;
     const skip = (page - 1) * limit;
 
     const [applications, total] = await Promise.all([

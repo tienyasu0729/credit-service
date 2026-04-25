@@ -22,9 +22,60 @@
     @media (prefers-reduced-motion: reduce) {
       *, a, button { transition: none !important; animation: none !important; }
     }
+
+    /* ── Warm-up Toggle ── */
+    #warmup-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      border: 1px solid rgba(255,255,255,0.2);
+      cursor: pointer;
+      transition: background 200ms, border-color 200ms, transform 100ms;
+      background: rgba(255,255,255,0.08);
+      color: #c7d2fe;
+      user-select: none;
+    }
+    #warmup-btn:hover { background: rgba(255,255,255,0.16); transform: translateY(-1px); }
+    #warmup-btn.active { background: rgba(52,211,153,0.18); border-color: rgba(52,211,153,0.5); color: #6ee7b7; }
+    #warmup-btn .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #6b7280;
+      transition: background 200ms;
+      flex-shrink: 0;
+    }
+    #warmup-btn.active .dot { background: #34d399; animation: pulse-dot 1.5s ease-in-out infinite; }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.7); }
+    }
+    #warmup-tooltip {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      background: #1e1b4b;
+      color: #c7d2fe;
+      font-size: 0.7rem;
+      padding: 8px 12px;
+      border-radius: 8px;
+      white-space: nowrap;
+      border: 1px solid rgba(99,102,241,0.4);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+      pointer-events: none;
+      opacity: 0;
+      transform: translateY(-4px);
+      transition: opacity 150ms, transform 150ms;
+      z-index: 100;
+    }
+    #warmup-wrap:hover #warmup-tooltip { opacity: 1; transform: translateY(0); }
   </style>
 </head>
-<body class="bg-slate-50 min-h-screen text-slate-900">
+<body class="bg-slate-50 min-h-screen text-slate-900 flex flex-col">
 
   <!-- NAVBAR -->
   <nav class="bg-indigo-700 text-white shadow-lg sticky top-0 z-40">
@@ -40,22 +91,34 @@
             <span class="hidden xs:inline">Quản trị </span>Self Bank<span class="text-indigo-300">™</span>
           </a>
         </div>
-        <!-- Badge môi trường - ẩn trên mobile cực nhỏ -->
-        <span class="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium bg-indigo-800 text-indigo-200 px-2.5 py-1 rounded-full border border-indigo-600">
-          <span class="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
-          Môi trường kiểm thử
-        </span>
+        <!-- Phần bên phải navbar -->
+        <div class="flex items-center gap-2 sm:gap-3">
+          <!-- Badge môi trường - ẩn trên mobile cực nhỏ -->
+          <span class="hidden sm:inline-flex items-center gap-1.5 text-xs font-medium bg-indigo-800 text-indigo-200 px-2.5 py-1 rounded-full border border-indigo-600">
+            <span class="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></span>
+            Môi trường kiểm thử
+          </span>
+
+          <!-- Warm-up Toggle -->
+          <div id="warmup-wrap" style="position:relative;">
+            <button id="warmup-btn" onclick="toggleWarmup()" title="Giữ ấm AI Gateway">
+              <span class="dot"></span>
+              <span id="warmup-label">Giữ ấm AI</span>
+            </button>
+            <div id="warmup-tooltip">Tắt</div>
+          </div>
+        </div>
       </div>
     </div>
   </nav>
 
   <!-- MAIN CONTENT -->
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+  <main class="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex-1 flex flex-col">
     <%- body %>
   </main>
 
   <!-- FOOTER -->
-  <footer class="border-t border-slate-200 bg-white mt-8">
+  <footer class="border-t border-slate-200 bg-white mt-auto">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
       <p class="text-center text-slate-500 text-xs sm:text-sm">
         &copy; 2025 Self Bank &mdash; Dịch vụ Đối tác Tài chính &mdash; Môi trường Kiểm thử Tích hợp
@@ -65,6 +128,122 @@
 
   <!-- TOAST CONTAINER (bottom-right trên desktop, bottom-center trên mobile) -->
   <div id="toast-container" class="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-5 sm:w-96 z-50 flex flex-col gap-2"></div>
+
+  <!-- ── Warm-up AI Gateway Script ── -->
+  <script>
+    (function () {
+      const HEALTH_URL   = '<%- warmupConfig.healthUrl %>';
+      const INTERVAL_MS  = <%= warmupConfig.intervalMin %> * 60 * 1000;
+      const EXPIRE_MS    = <%= warmupConfig.expireHours %> * 60 * 60 * 1000;
+      const SK_ACTIVE    = 'warmup_active';
+      const SK_EXPIRE    = 'warmup_expire_at';
+
+      let _timer = null;
+
+      /* ── Gọi health ── */
+      async function pingHealth() {
+        try {
+          const res = await fetch(HEALTH_URL, { 
+            method: 'GET', 
+            signal: AbortSignal.timeout(15000),
+            cache: 'no-store'
+          });
+          const data = await res.json();
+          const ok   = data.status === 'ok';
+          console.log('[Warm-up] ping', ok ? '✅ ok' : '⚠ degraded', data);
+          showToast(ok ? '🔥 AI Gateway đang hoạt động tốt' : '⚠️ AI Gateway: ' + data.status, ok ? 'ok' : 'warn', 4000);
+        } catch (e) {
+          console.warn('[Warm-up] ping failed:', e.message);
+          showToast('⚠️ Không kết nối được AI Gateway', 'warn', 4000);
+        }
+      }
+
+      /* ── Bật warm-up ── */
+      function startWarmup() {
+        const expireAt = Date.now() + EXPIRE_MS;
+        localStorage.setItem(SK_ACTIVE,  '1');
+        localStorage.setItem(SK_EXPIRE,  String(expireAt));
+        updateUI(true, expireAt);
+        pingHealth(); // ping ngay lập tức
+        _timer = setInterval(() => {
+          if (Date.now() >= expireAt) { stopWarmup(); return; }
+          pingHealth();
+        }, INTERVAL_MS);
+      }
+
+      /* ── Tắt warm-up ── */
+      function stopWarmup() {
+        clearInterval(_timer);
+        _timer = null;
+        localStorage.removeItem(SK_ACTIVE);
+        localStorage.removeItem(SK_EXPIRE);
+        updateUI(false, null);
+        showToast('🛑 Đã tắt chế độ giữ ấm AI Gateway', 'info', 3000);
+      }
+
+      /* ── Toggle từ nút ── */
+      window.toggleWarmup = function () {
+        const isActive = !!localStorage.getItem(SK_ACTIVE);
+        if (isActive) { stopWarmup(); } else { startWarmup(); }
+      };
+
+      /* ── Cập nhật giao diện nút ── */
+      function updateUI(active, expireAt) {
+        const btn     = document.getElementById('warmup-btn');
+        const label   = document.getElementById('warmup-label');
+        const tooltip = document.getElementById('warmup-tooltip');
+        if (!btn) return;
+        if (active && expireAt) {
+          btn.classList.add('active');
+          const left = Math.round((expireAt - Date.now()) / 60000);
+          label.textContent   = 'Đang giữ ấm';
+          tooltip.textContent = `Tự tắt sau ${left} phút nữa · 10 phút/lần`;
+        } else {
+          btn.classList.remove('active');
+          label.textContent   = 'Giữ ấm AI';
+          tooltip.textContent = 'Nhấn để giữ ấm AI Gateway (tự tắt sau 2 tiếng)';
+        }
+      }
+
+      /* ── Khôi phục state khi reload trang ── */
+      function restoreState() {
+        const active   = localStorage.getItem(SK_ACTIVE);
+        const expireAt = parseInt(localStorage.getItem(SK_EXPIRE) || '0', 10);
+        if (active && expireAt > Date.now()) {
+          updateUI(true, expireAt);
+          pingHealth();
+          _timer = setInterval(() => {
+            if (Date.now() >= expireAt) { stopWarmup(); return; }
+            pingHealth();
+          }, INTERVAL_MS);
+        } else {
+          // Hết hạn hoặc chưa bật
+          localStorage.removeItem(SK_ACTIVE);
+          localStorage.removeItem(SK_EXPIRE);
+          updateUI(false, null);
+        }
+      }
+
+      /* ── Toast helper ── */
+      function showToast(msg, type, duration) {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+        const colors = { ok: 'bg-emerald-600', warn: 'bg-amber-500', info: 'bg-slate-600' };
+        const el = document.createElement('div');
+        el.className = `${colors[type] || colors.info} text-white text-xs font-medium px-4 py-2.5 rounded-lg shadow-lg flex items-center gap-2 opacity-0 translate-y-2 transition-all duration-200`;
+        el.innerHTML = `<span>${msg}</span>`;
+        container.appendChild(el);
+        requestAnimationFrame(() => { el.classList.remove('opacity-0', 'translate-y-2'); });
+        setTimeout(() => {
+          el.classList.add('opacity-0', 'translate-y-2');
+          setTimeout(() => el.remove(), 200);
+        }, duration || 3000);
+      }
+
+      /* ── Khởi động ── */
+      document.addEventListener('DOMContentLoaded', restoreState);
+    })();
+  </script>
 
 </body>
 </html>

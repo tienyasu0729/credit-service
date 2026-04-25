@@ -22,6 +22,16 @@ app.set('layout', 'layout');
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
+// Inject warmup config vào tất cả EJS views qua res.locals
+app.use((_req, res, next) => {
+  res.locals.warmupConfig = {
+    healthUrl:    process.env.WARMUP_HEALTH_URL    || 'https://llm-api-gateway-xlvu.onrender.com/health',
+    intervalMin:  parseInt(process.env.WARMUP_INTERVAL_MIN  || '10',  10),
+    expireHours:  parseFloat(process.env.WARMUP_EXPIRE_HOURS || '2'),
+  };
+  next();
+});
+
 // Routes
 app.use('/api', apiRoutes);
 app.use('/admin', adminRoutes);
