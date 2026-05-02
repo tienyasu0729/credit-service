@@ -32,6 +32,15 @@ app.use((_req, res, next) => {
   next();
 });
 
+// Lightweight health check endpoint for external warmup pings (no DB calls)
+app.get('/healthz', (_req, res) => {
+  res.status(200).json({
+    ok: true,
+    service: 'credit-service',
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // Routes
 app.use('/api', apiRoutes);
 app.use('/admin', adminRoutes);
