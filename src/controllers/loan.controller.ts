@@ -12,7 +12,11 @@ const isValidUrl = (urlString: string) => {
   }
 };
 
-const resolveExternalId = (externalId: unknown, applicationSnapshot: unknown): string | null => {
+const resolveExternalId = (
+  externalId: unknown,
+  applicationId: unknown,
+  applicationSnapshot: unknown
+): string | null => {
   const toClean = (v: unknown): string | null => {
     if (v === null || v === undefined) return null;
     const s = String(v).trim();
@@ -21,6 +25,9 @@ const resolveExternalId = (externalId: unknown, applicationSnapshot: unknown): s
 
   const fromPayload = toClean(externalId);
   if (fromPayload) return fromPayload;
+
+  const fromApplicationId = toClean(applicationId);
+  if (fromApplicationId) return fromApplicationId;
 
   if (applicationSnapshot && typeof applicationSnapshot === 'object') {
     const snap = applicationSnapshot as Record<string, unknown>;
@@ -40,11 +47,12 @@ export const applyForLoan = async (req: Request, res: Response) => {
       term,
       documents,
       externalId,
+      applicationId,
       income,
       company,
       applicationSnapshot
     } = req.body;
-    const resolvedExternalId = resolveExternalId(externalId, applicationSnapshot);
+    const resolvedExternalId = resolveExternalId(externalId, applicationId, applicationSnapshot);
 
     // 1. Validation
     if (!customerName || typeof customerName !== 'string') {

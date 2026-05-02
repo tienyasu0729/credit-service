@@ -19,6 +19,35 @@ export const REASON_CODE_LABELS: Record<string, string> = {
   'INVALID_INFORMATION': 'Thông tin cung cấp không hợp lệ'
 };
 
+const cleanString = (value: unknown): string | null => {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  return text.length > 0 ? text : null;
+};
+
+const getNested = (source: unknown, path: string[]): unknown => {
+  let current = source;
+  for (const key of path) {
+    if (!current || typeof current !== 'object') return null;
+    current = (current as Record<string, unknown>)[key];
+  }
+  return current;
+};
+
+const resolveStoredExternalId = (application: any): string | null => {
+  const direct = cleanString(application?.externalId);
+  if (direct) return direct;
+
+  return (
+    cleanString(application?.snapshotJson?.applicationId) ||
+    cleanString(application?.snapshotJson?.id) ||
+    cleanString(getNested(application?.rawPayloadJson, ['applicationSnapshot', 'applicationId'])) ||
+    cleanString(getNested(application?.rawPayloadJson, ['applicationSnapshot', 'id'])) ||
+    cleanString(application?.rawPayloadJson?.externalId) ||
+    null
+  );
+};
+
 export const getDashboard = async (req: Request, res: Response) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
@@ -133,8 +162,26 @@ export const handleAction = async (req: Request, res: Response) => {
 
     // Safety guard: only callback to main-system for records originated from it.
     // externalId is expected to be main-system application id.
-    if (!application.externalId || String(application.externalId).trim() === '') {
+    const externalId = resolveStoredExternalId(application);
+    if (!externalId) {
       return res.status(400).send('Application has no externalId. Cannot sync callback to main system.');
+    }
+
+    if (externalId !== application.externalId) {
+      try {
+        await prisma.loanApplication.update({
+          where: { id },
+          data: { externalId },
+        });
+      } catch (e: any) {
+        const schemaNotReady = String(e?.code || '') === 'P2022';
+        if (!schemaNotReady) throw e;
+        await prisma.$executeRawUnsafe(`
+          UPDATE "LoanApplication"
+          SET "externalId" = $2, "updatedAt" = NOW()
+          WHERE "id" = $1
+        `, id, externalId);
+      }
     }
 
     if (action === 'APPROVE') {
@@ -154,7 +201,7 @@ export const handleAction = async (req: Request, res: Response) => {
       }
       // Fire and forget callback (no await necessary to hold up UI, or we can await it)
       // We will await to ensure it fires, but not rollback if it fails (handled in service)
-      await sendCallback(id, application.externalId, 'APPROVED');
+      await sendCallback(id, externalId, 'APPROVED');
 
     } else if (action === 'REJECT') {
       if (!reasonCode || !REASON_CODES.includes(reasonCode)) {
@@ -180,7 +227,7 @@ export const handleAction = async (req: Request, res: Response) => {
         `, id, reasonCode, note || null);
       }
 
-      await sendCallback(id, application.externalId, 'REJECTED', reasonCode, note);
+      await sendCallback(id, externalId, 'REJECTED', reasonCode, note);
     } else {
       return res.status(400).send('Invalid action');
     }
