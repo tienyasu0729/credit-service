@@ -12,6 +12,24 @@ const isValidUrl = (urlString: string) => {
   }
 };
 
+const resolveExternalId = (externalId: unknown, applicationSnapshot: unknown): string | null => {
+  const toClean = (v: unknown): string | null => {
+    if (v === null || v === undefined) return null;
+    const s = String(v).trim();
+    return s.length > 0 ? s : null;
+  };
+
+  const fromPayload = toClean(externalId);
+  if (fromPayload) return fromPayload;
+
+  if (applicationSnapshot && typeof applicationSnapshot === 'object') {
+    const snap = applicationSnapshot as Record<string, unknown>;
+    return toClean(snap.applicationId) || toClean(snap.id);
+  }
+
+  return null;
+};
+
 export const applyForLoan = async (req: Request, res: Response) => {
   try {
     const {
@@ -26,6 +44,7 @@ export const applyForLoan = async (req: Request, res: Response) => {
       company,
       applicationSnapshot
     } = req.body;
+    const resolvedExternalId = resolveExternalId(externalId, applicationSnapshot);
 
     // 1. Validation
     if (!customerName || typeof customerName !== 'string') {
@@ -83,7 +102,7 @@ export const applyForLoan = async (req: Request, res: Response) => {
     try {
       application = await prisma.loanApplication.create({
         data: {
-          externalId: externalId || null,
+          externalId: resolvedExternalId,
           customerName,
           cccd,
           phone,
@@ -117,7 +136,7 @@ export const applyForLoan = async (req: Request, res: Response) => {
         VALUES
           ($1,$2,$3,$4,$5,$6,$7,'PENDING',$8,$9,$10,NOW(),NOW())
         RETURNING "id","externalId","customerName","cccd","phone","amount","term","status","cccdUrl","incomeProofUrl","contractUrl","createdAt","updatedAt"
-      `, newId, externalId || null, customerName, cccd, phone, amount, term, documents.cccdUrl, documents.incomeProofUrl || null, documents.contractUrl || null);
+      `, newId, resolvedExternalId, customerName, cccd, phone, amount, term, documents.cccdUrl, documents.incomeProofUrl || null, documents.contractUrl || null);
 
       if (!rows || rows.length === 0) {
         throw new Error('Fallback insert failed: no row returned');
