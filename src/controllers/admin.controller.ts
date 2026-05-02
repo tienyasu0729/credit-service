@@ -131,6 +131,12 @@ export const handleAction = async (req: Request, res: Response) => {
       return res.status(400).send('Application is already processed');
     }
 
+    // Safety guard: only callback to main-system for records originated from it.
+    // externalId is expected to be main-system application id.
+    if (!application.externalId || String(application.externalId).trim() === '') {
+      return res.status(400).send('Application has no externalId. Cannot sync callback to main system.');
+    }
+
     if (action === 'APPROVE') {
       try {
         await prisma.loanApplication.update({

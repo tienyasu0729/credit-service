@@ -29,7 +29,7 @@ export const sendCallback = async (
   const signature = generateHmacSignature(payloadString, timestamp, API_SECRET);
 
   try {
-    console.log(`[CallbackService] Sending callback for Loan ${loanId}...`);
+    console.log(`[CallbackService] Sending callback for Loan ${loanId} (externalId=${externalId ?? 'null'})...`);
     const response = await fetch(CALLBACK_URL, {
       method: 'POST',
       headers: {
@@ -45,7 +45,8 @@ export const sendCallback = async (
     if (response.ok) {
       console.log(`[CallbackService] Success: Callback sent for Loan ${loanId}`);
     } else {
-      console.error(`[CallbackService] Failed: Main system returned status ${response.status} for Loan ${loanId}`);
+      const body = await response.text().catch(() => '');
+      console.error(`[CallbackService] Failed: Main system returned status ${response.status} for Loan ${loanId}. body=${body}`);
       // As per PLAN: Do NOT rollback DB status if callback fails.
     }
   } catch (error) {
