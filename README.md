@@ -53,7 +53,8 @@ API_KEY="test_api_key_123"
 API_SECRET="test_api_secret_456"
 
 # URL của Hệ thống chính nhận kết quả Callback
-CALLBACK_URL="http://localhost:4000/api/webhook/loan-result"
+# Với backend used-cars-backend local:
+CALLBACK_URL="http://localhost:8080/api/v1/webhook/bank/loan-result"
 ```
 
 ### 4. Khởi tạo Database (Prisma)
@@ -62,7 +63,44 @@ Chạy lệnh dưới đây để đồng bộ và đẩy cấu trúc bảng xu�
 
 ```bash
 npx prisma db push
+npx prisma generate
 ```
+
+### 4.1. Runbook an toàn khi dùng DB Render đã có dữ liệu (không reset)
+
+Kịch bản này dùng khi muốn giữ DB hiện tại và đồng bộ schema mà không xóa dữ liệu.
+
+1) Đồng bộ schema lên DB:
+```bash
+npx prisma db push
+npx prisma generate
+```
+
+2) Tạo baseline migration (để lần sau dùng `migrate deploy`):
+```powershell
+mkdir prisma\migrations\0001_baseline
+npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script | Out-File -FilePath prisma\migrations\0001_baseline\migration.sql -Encoding utf8
+npx prisma migrate resolve --applied 0001_baseline
+```
+
+3) Các lần deploy sau chỉ dùng:
+```bash
+npx prisma migrate deploy
+```
+
+Lưu ý quan trọng:
+- Không dùng `npx prisma migrate dev` trực tiếp trên DB Render production/staging đang có dữ liệu.
+- Nếu thấy lỗi Drift (`Drift detected`), ưu tiên `db push` + baseline như trên, không `migrate reset` trừ khi chấp nhận mất dữ liệu.
+
+### 4.2. Sự cố thường gặp
+
+- Lỗi `P2022: column ... does not exist`:
+  - DB chưa sync theo schema mới.
+  - Chạy lại: `npx prisma db push && npx prisma generate`.
+
+- Lỗi callback `ECONNREFUSED`:
+  - `CALLBACK_URL` sai host/port hoặc backend chưa chạy.
+  - Với local backend: `http://localhost:8080/api/v1/webhook/bank/loan-result`.
 
 ### 5. Khởi chạy Server
 

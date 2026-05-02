@@ -37,6 +37,7 @@ export const sendCallback = async (
         'X-API-Key': API_KEY,
         'X-Timestamp': timestamp,
         'X-Signature': signature,
+        'X-Api-Secret': API_SECRET,
       },
       body: payloadString,
     });

@@ -1,214 +1,214 @@
-<!-- BACK BUTTON -->
-<div class="mb-5 sm:mb-6">
-  <a href="/admin" class="inline-flex items-center gap-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-800 cursor-pointer group">
-    <svg class="w-4 h-4 transition-transform group-hover:-translate-x-0.5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-      <path fill-rule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clip-rule="evenodd" />
-    </svg>
-    Quay lại Bảng điều khiển
+<%
+  const app = application || {};
+  const docsJson = app.documentsJson || {};
+  const rawPayload = app.rawPayloadJson || {};
+  const snapshot = app.snapshotJson || rawPayload.applicationSnapshot || {};
+
+  function toLabel(key) {
+    const map = {
+      CCCD_FRONT: 'CCCD/CMND mặt trước',
+      CCCD_BACK: 'CCCD/CMND mặt sau',
+      HOUSEHOLD_REG: 'Sổ hộ khẩu',
+      INCOME_PROOF: 'Bảng lương/Xác nhận thu nhập',
+      BANK_STATEMENT: 'Sao kê ngân hàng',
+      LABOR_CONTRACT: 'Hợp đồng lao động',
+      BUSINESS_LICENSE: 'Giấy phép kinh doanh',
+      BUSINESS_PHOTO: 'Ảnh cơ sở kinh doanh',
+      VEHICLE_CONTRACT: 'Hợp đồng mua xe',
+      DEPOSIT_RECEIPT: 'Biên nhận đặt cọc',
+      ASSET_DOCUMENT: 'Giấy tờ tài sản',
+      OTHER: 'Tài liệu khác',
+    };
+    return map[key] || key || 'Không xác định';
+  }
+
+  function isObj(v) { return !!v && typeof v === 'object' && !Array.isArray(v); }
+  function toRows(obj) {
+    if (!isObj(obj)) return [];
+    return Object.entries(obj).filter(([_, v]) => v !== null && v !== undefined && v !== '');
+  }
+
+  let allDocs = Array.isArray(docsJson.allDocuments) ? docsJson.allDocuments.slice() : [];
+  if (allDocs.length === 0 && isObj(docsJson.byType)) {
+    Object.entries(docsJson.byType).forEach(([type, urls]) => {
+      if (!Array.isArray(urls)) return;
+      urls.forEach((u) => allDocs.push({ type, url: u }));
+    });
+  }
+  if (allDocs.length === 0) {
+    if (app.cccdUrl) allDocs.push({ type: 'CCCD_FRONT', url: app.cccdUrl, fileName: 'CCCD' });
+    if (app.incomeProofUrl) allDocs.push({ type: 'INCOME_PROOF', url: app.incomeProofUrl, fileName: 'Chứng minh thu nhập' });
+    if (app.contractUrl) allDocs.push({ type: 'VEHICLE_CONTRACT', url: app.contractUrl, fileName: 'Hợp đồng' });
+  }
+
+  const step1 = snapshot.step1Personal || {};
+  const step2 = snapshot.step2Occupation || {};
+  const step3 = snapshot.step3Finance || {};
+  const step4 = snapshot.step4Loan || {};
+  const step5 = snapshot.step5Documents || {};
+  const step6 = snapshot.step6Commitment || {};
+  const step7 = snapshot.step7Confirmation || {};
+  const vehicle = snapshot.vehicle || {};
+%>
+
+<div class="mb-6">
+  <a href="/admin" class="inline-flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-800">
+    <span>←</span>
+    <span>Quay lại bảng điều khiển</span>
   </a>
 </div>
 
-<!-- DETAIL CARD -->
-<div class="bg-white shadow-sm rounded-xl border border-slate-200 mb-6 sm:mb-8 overflow-hidden">
-  <!-- Card Header -->
-  <div class="px-4 sm:px-6 py-4 sm:py-5 border-b border-slate-200 bg-slate-50/60">
-    <!-- Mobile: stack, Desktop: row -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-      <div class="min-w-0">
-        <h1 class="text-lg sm:text-xl font-bold text-slate-900">Chi tiết hồ sơ</h1>
-        <p class="mt-0.5 text-xs text-slate-500 font-mono truncate">
-          ID: <%= application.id %>
-        </p>
+<div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mb-6">
+  <div class="px-6 py-5 border-b border-slate-200 bg-slate-50">
+    <div class="flex items-center justify-between gap-4">
+      <div>
+        <h1 class="text-xl font-bold text-slate-900">Chi tiết hồ sơ vay</h1>
+        <p class="text-xs text-slate-500 font-mono mt-1">ID: <%= app.id %></p>
       </div>
-      <div class="flex-shrink-0">
-        <% if (application.status === 'PENDING') { %>
-          <span class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-full bg-amber-100 text-amber-800 border border-amber-200">
-            <span class="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></span>
-            CHỜ XỬ LÝ
-          </span>
-        <% } else if (application.status === 'APPROVED') { %>
-          <span class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
-            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg>
-            ĐÃ PHÊ DUYỆT
-          </span>
-        <% } else { %>
-          <span class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold rounded-full bg-red-100 text-red-800 border border-red-200">
-            <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
-            ĐÃ TỪ CHỐI
-          </span>
-        <% } %>
-      </div>
+      <span class="px-3 py-1 rounded-full text-sm font-semibold border
+        <%= app.status === 'PENDING' ? 'bg-amber-100 text-amber-800 border-amber-200' : '' %>
+        <%= app.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : '' %>
+        <%= app.status === 'REJECTED' ? 'bg-red-100 text-red-800 border-red-200' : '' %>">
+        <%= app.status %>
+      </span>
     </div>
   </div>
 
-  <!-- Info list: 2-col grid trên desktop, stacked trên mobile -->
-  <dl class="divide-y divide-slate-100">
-    <div class="px-4 sm:px-6 py-3 sm:py-4 grid grid-cols-1 sm:grid-cols-3 sm:gap-4 items-start">
-      <dt class="text-sm font-medium text-slate-500 mb-1 sm:mb-0">Tên khách hàng</dt>
-      <dd class="text-sm font-semibold text-slate-900 sm:col-span-2"><%= application.customerName %></dd>
+  <div class="p-6">
+    <h2 class="text-base font-semibold text-slate-900 mb-3">Thông tin cơ bản</h2>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+      <div class="p-3 bg-slate-50 rounded border border-slate-200"><span class="text-slate-500">Khách hàng:</span> <b><%= app.customerName || '-' %></b></div>
+      <div class="p-3 bg-slate-50 rounded border border-slate-200"><span class="text-slate-500">CCCD:</span> <b><%= app.cccd || '-' %></b></div>
+      <div class="p-3 bg-slate-50 rounded border border-slate-200"><span class="text-slate-500">Điện thoại:</span> <b><%= app.phone || '-' %></b></div>
+      <div class="p-3 bg-slate-50 rounded border border-slate-200"><span class="text-slate-500">Số tiền vay:</span> <b><%= typeof app.amount !== 'undefined' ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(app.amount) : '-' %></b></div>
+      <div class="p-3 bg-slate-50 rounded border border-slate-200"><span class="text-slate-500">Kỳ hạn:</span> <b><%= app.term || '-' %> tháng</b></div>
+      <div class="p-3 bg-slate-50 rounded border border-slate-200"><span class="text-slate-500">External ID:</span> <b><%= app.externalId || '-' %></b></div>
     </div>
-    <div class="px-4 sm:px-6 py-3 sm:py-4 grid grid-cols-1 sm:grid-cols-3 sm:gap-4 items-start bg-slate-50/50">
-      <dt class="text-sm font-medium text-slate-500 mb-1 sm:mb-0">CCCD</dt>
-      <dd class="text-sm font-mono text-slate-900 sm:col-span-2"><%= application.cccd %></dd>
-    </div>
-    <div class="px-4 sm:px-6 py-3 sm:py-4 grid grid-cols-1 sm:grid-cols-3 sm:gap-4 items-start">
-      <dt class="text-sm font-medium text-slate-500 mb-1 sm:mb-0">Số điện thoại</dt>
-      <dd class="text-sm text-slate-900 sm:col-span-2"><%= application.phone %></dd>
-    </div>
-    <div class="px-4 sm:px-6 py-3 sm:py-4 grid grid-cols-1 sm:grid-cols-3 sm:gap-4 items-start bg-slate-50/50">
-      <dt class="text-sm font-medium text-slate-500 mb-1 sm:mb-0">Số tiền vay</dt>
-      <dd class="text-sm sm:col-span-2">
-        <span class="text-base sm:text-lg font-bold text-indigo-700">
-          <%= new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(application.amount) %>
-        </span>
-      </dd>
-    </div>
-    <div class="px-4 sm:px-6 py-3 sm:py-4 grid grid-cols-1 sm:grid-cols-3 sm:gap-4 items-start">
-      <dt class="text-sm font-medium text-slate-500 mb-1 sm:mb-0">Kỳ hạn</dt>
-      <dd class="text-sm text-slate-900 sm:col-span-2"><%= application.term %> tháng</dd>
-    </div>
-    <% if (application.externalId) { %>
-    <div class="px-4 sm:px-6 py-3 sm:py-4 grid grid-cols-1 sm:grid-cols-3 sm:gap-4 items-start bg-slate-50/50">
-      <dt class="text-sm font-medium text-slate-500 mb-1 sm:mb-0">Mã hệ thống ngoài</dt>
-      <dd class="text-sm font-mono text-slate-900 sm:col-span-2"><%= application.externalId %></dd>
-    </div>
-    <% } %>
-
-    <!-- Documents -->
-    <div class="px-4 sm:px-6 py-3 sm:py-4 grid grid-cols-1 sm:grid-cols-3 sm:gap-4 items-start">
-      <dt class="text-sm font-medium text-slate-500 mb-2 sm:mb-0">Tài liệu đính kèm</dt>
-      <dd class="sm:col-span-2">
-        <ul role="list" class="border border-slate-200 rounded-lg divide-y divide-slate-200 overflow-hidden">
-          <li class="flex items-center justify-between px-3 py-2.5 text-sm bg-white hover:bg-slate-50 transition-colors">
-            <div class="flex items-center gap-2 min-w-0">
-              <svg class="flex-shrink-0 h-4 w-4 text-slate-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path fill-rule="evenodd" d="M15.621 4.379a3 3 0 00-4.242 0l-7 7a3 3 0 004.241 4.243h.001l.497-.5a.75.75 0 011.064 1.057l-.498.501-.002.002a4.5 4.5 0 01-6.364-6.364l7-7a4.5 4.5 0 016.368 6.36l-3.455 3.553A2.625 2.625 0 119.52 9.52l3.45-3.451a.75.75 0 111.061 1.06l-3.45 3.451a1.125 1.125 0 001.587 1.595l3.454-3.553a3 3 0 000-4.242z" clip-rule="evenodd" />
-              </svg>
-              <span class="truncate font-medium text-slate-700">Ảnh CCCD</span>
-            </div>
-            <a href="<%= application.cccdUrl %>" target="_blank" rel="noopener noreferrer" class="flex-shrink-0 ml-3 text-xs font-semibold text-indigo-600 hover:text-indigo-800 cursor-pointer" onclick="event.stopPropagation()">
-              Xem &rarr;
-            </a>
-          </li>
-          <% if (application.incomeProofUrl) { %>
-          <li class="flex items-center justify-between px-3 py-2.5 text-sm bg-white hover:bg-slate-50 transition-colors">
-            <div class="flex items-center gap-2 min-w-0">
-              <svg class="flex-shrink-0 h-4 w-4 text-slate-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path fill-rule="evenodd" d="M15.621 4.379a3 3 0 00-4.242 0l-7 7a3 3 0 004.241 4.243h.001l.497-.5a.75.75 0 011.064 1.057l-.498.501-.002.002a4.5 4.5 0 01-6.364-6.364l7-7a4.5 4.5 0 016.368 6.36l-3.455 3.553A2.625 2.625 0 119.52 9.52l3.45-3.451a.75.75 0 111.061 1.06l-3.45 3.451a1.125 1.125 0 001.587 1.595l3.454-3.553a3 3 0 000-4.242z" clip-rule="evenodd" />
-              </svg>
-              <span class="truncate font-medium text-slate-700">Chứng minh thu nhập</span>
-            </div>
-            <a href="<%= application.incomeProofUrl %>" target="_blank" rel="noopener noreferrer" class="flex-shrink-0 ml-3 text-xs font-semibold text-indigo-600 hover:text-indigo-800 cursor-pointer" onclick="event.stopPropagation()">
-              Xem &rarr;
-            </a>
-          </li>
-          <% } %>
-          <% if (application.contractUrl) { %>
-          <li class="flex items-center justify-between px-3 py-2.5 text-sm bg-white hover:bg-slate-50 transition-colors">
-            <div class="flex items-center gap-2 min-w-0">
-              <svg class="flex-shrink-0 h-4 w-4 text-slate-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                <path fill-rule="evenodd" d="M15.621 4.379a3 3 0 00-4.242 0l-7 7a3 3 0 004.241 4.243h.001l.497-.5a.75.75 0 011.064 1.057l-.498.501-.002.002a4.5 4.5 0 01-6.364-6.364l7-7a4.5 4.5 0 016.368 6.36l-3.455 3.553A2.625 2.625 0 119.52 9.52l3.45-3.451a.75.75 0 111.061 1.06l-3.45 3.451a1.125 1.125 0 001.587 1.595l3.454-3.553a3 3 0 000-4.242z" clip-rule="evenodd" />
-              </svg>
-              <span class="truncate font-medium text-slate-700">Hợp đồng</span>
-            </div>
-            <a href="<%= application.contractUrl %>" target="_blank" rel="noopener noreferrer" class="flex-shrink-0 ml-3 text-xs font-semibold text-indigo-600 hover:text-indigo-800 cursor-pointer" onclick="event.stopPropagation()">
-              Xem &rarr;
-            </a>
-          </li>
-          <% } %>
-        </ul>
-      </dd>
-    </div>
-
-    <!-- Rejection info nếu đã từ chối -->
-    <% if (application.status === 'REJECTED') { %>
-    <div class="px-4 sm:px-6 py-3 sm:py-4 grid grid-cols-1 sm:grid-cols-3 sm:gap-4 items-start bg-red-50/60">
-      <dt class="text-sm font-medium text-red-600 mb-1 sm:mb-0">Lý do từ chối</dt>
-      <dd class="text-sm font-bold text-red-800 sm:col-span-2">
-        <%= reasonLabels[application.reasonCode] || application.reasonCode %>
-      </dd>
-    </div>
-    <% if (application.note) { %>
-    <div class="px-4 sm:px-6 py-3 sm:py-4 grid grid-cols-1 sm:grid-cols-3 sm:gap-4 items-start bg-red-50/40">
-      <dt class="text-sm font-medium text-red-600 mb-1 sm:mb-0">Ghi chú của Admin</dt>
-      <dd class="text-sm text-red-700 sm:col-span-2 leading-relaxed"><%= application.note %></dd>
-    </div>
-    <% } %>
-    <% } %>
-  </dl>
+  </div>
 </div>
 
-<!-- DECISION PANEL (chỉ hiện khi PENDING) -->
-<% if (application.status === 'PENDING') { %>
-<div class="bg-white shadow-sm rounded-xl border border-slate-200 overflow-hidden">
-  <div class="px-4 sm:px-6 py-4 sm:py-5">
-    <h2 class="text-base sm:text-lg font-bold text-slate-900 mb-4 sm:mb-5">Quyết định phê duyệt</h2>
+<div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mb-6">
+  <div class="px-6 py-4 border-b border-slate-200 bg-slate-50">
+    <h2 class="text-base font-semibold text-slate-900">Tài liệu nhận từ backend (<%= allDocs.length %>)</h2>
+  </div>
+  <div class="p-6">
+    <% if (allDocs.length === 0) { %>
+      <p class="text-sm text-slate-500">Chưa có tài liệu.</p>
+    <% } else { %>
+      <div class="space-y-2">
+        <% allDocs.forEach((d, idx) => { %>
+          <div class="border border-slate-200 rounded-lg p-3 flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <p class="text-sm font-semibold text-slate-900"><%= toLabel(d.type) %></p>
+              <p class="text-xs text-slate-500 truncate">
+                <%= d.fileName || ('Tài liệu #' + (idx + 1)) %>
+                <% if (d.uploadedAt) { %> • <%= d.uploadedAt %><% } %>
+              </p>
+            </div>
+            <a href="<%= d.url %>" target="_blank" rel="noopener noreferrer" class="text-sm font-semibold text-indigo-600 hover:text-indigo-800 whitespace-nowrap">Xem →</a>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+  </div>
+</div>
 
-    <!-- Action buttons: stack trên mobile, row trên sm -->
+<div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden mb-6">
+  <div class="px-6 py-4 border-b border-slate-200 bg-slate-50">
+    <h2 class="text-base font-semibold text-slate-900">Snapshot dữ liệu 7 bước</h2>
+  </div>
+  <div class="p-6 space-y-6">
+    <div>
+      <h3 class="text-sm font-bold text-slate-800 mb-2">Bước 1 - Cá nhân</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+        <% toRows(step1).forEach(([k,v]) => { %><div class="p-2 bg-slate-50 rounded border border-slate-200"><span class="text-slate-500"><%= k %>:</span> <b><%= String(v) %></b></div><% }) %>
+      </div>
+    </div>
+    <div>
+      <h3 class="text-sm font-bold text-slate-800 mb-2">Bước 2 - Nghề nghiệp</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+        <% toRows(step2).forEach(([k,v]) => { %><div class="p-2 bg-slate-50 rounded border border-slate-200"><span class="text-slate-500"><%= k %>:</span> <b><%= String(v) %></b></div><% }) %>
+      </div>
+    </div>
+    <div>
+      <h3 class="text-sm font-bold text-slate-800 mb-2">Bước 3 - Tài chính</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+        <% toRows(step3).forEach(([k,v]) => { %><div class="p-2 bg-slate-50 rounded border border-slate-200"><span class="text-slate-500"><%= k %>:</span> <b><%= String(v) %></b></div><% }) %>
+      </div>
+    </div>
+    <div>
+      <h3 class="text-sm font-bold text-slate-800 mb-2">Bước 4 - Khoản vay</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+        <% toRows(step4).forEach(([k,v]) => { %><div class="p-2 bg-slate-50 rounded border border-slate-200"><span class="text-slate-500"><%= k %>:</span> <b><%= String(v) %></b></div><% }) %>
+      </div>
+    </div>
+    <div>
+      <h3 class="text-sm font-bold text-slate-800 mb-2">Bước 5 - Tài liệu</h3>
+      <pre class="text-xs bg-slate-50 border border-slate-200 rounded p-3 overflow-auto"><%= JSON.stringify(step5, null, 2) %></pre>
+    </div>
+    <div>
+      <h3 class="text-sm font-bold text-slate-800 mb-2">Bước 6 - Cam kết & chữ ký</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+        <% toRows(step6).forEach(([k,v]) => { %><div class="p-2 bg-slate-50 rounded border border-slate-200"><span class="text-slate-500"><%= k %>:</span> <b><%= String(v) %></b></div><% }) %>
+      </div>
+      <% if (step6.signatureUrl) { %>
+        <div class="mt-2">
+          <a href="<%= step6.signatureUrl %>" target="_blank" rel="noopener noreferrer" class="text-sm font-semibold text-indigo-600 hover:text-indigo-800">Mở chữ ký →</a>
+        </div>
+      <% } %>
+    </div>
+    <div>
+      <h3 class="text-sm font-bold text-slate-800 mb-2">Bước 7 - Xác nhận</h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+        <% toRows(step7).forEach(([k,v]) => { %><div class="p-2 bg-slate-50 rounded border border-slate-200"><span class="text-slate-500"><%= k %>:</span> <b><%= String(v) %></b></div><% }) %>
+      </div>
+    </div>
+    <div>
+      <h3 class="text-sm font-bold text-slate-800 mb-2">Vehicle snapshot</h3>
+      <pre class="text-xs bg-slate-50 border border-slate-200 rounded p-3 overflow-auto"><%= JSON.stringify(vehicle, null, 2) %></pre>
+    </div>
+  </div>
+</div>
+
+<% if (app.status === 'REJECTED') { %>
+  <div class="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+    <p class="text-sm text-red-700"><b>Lý do từ chối:</b> <%= reasonLabels[app.reasonCode] || app.reasonCode || '-' %></p>
+    <% if (app.note) { %><p class="text-sm text-red-700 mt-1"><b>Ghi chú:</b> <%= app.note %></p><% } %>
+  </div>
+<% } %>
+
+<% if (app.status === 'PENDING') { %>
+<div class="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+  <div class="px-6 py-5">
+    <h2 class="text-base font-semibold text-slate-900 mb-4">Quyết định phê duyệt</h2>
     <div class="flex flex-col sm:flex-row gap-3">
-      <!-- APPROVE FORM -->
-      <form action="/admin/<%= application.id %>/action" method="POST" class="flex-1 sm:flex-none">
+      <form action="/admin/<%= app.id %>/action" method="POST">
         <input type="hidden" name="action" value="APPROVE">
-        <button type="submit" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 border border-transparent font-semibold rounded-lg text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 text-sm shadow-sm cursor-pointer transition-colors duration-150">
-          <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" /></svg>
-          Phê duyệt hồ sơ
-        </button>
+        <button type="submit" class="px-5 py-2.5 rounded-lg bg-emerald-600 text-white font-semibold hover:bg-emerald-700">Phê duyệt hồ sơ</button>
       </form>
 
-      <!-- REJECT TOGGLE BUTTON -->
-      <button
-        type="button"
-        id="toggleRejectBtn"
-        onclick="document.getElementById('rejectForm').classList.toggle('hidden'); this.classList.toggle('bg-slate-100');"
-        class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 border border-red-300 font-semibold rounded-lg text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 text-sm shadow-sm cursor-pointer transition-colors duration-150">
-        <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" /></svg>
-        Từ chối hồ sơ...
-      </button>
+      <button type="button" onclick="document.getElementById('rejectForm').classList.toggle('hidden')" class="px-5 py-2.5 rounded-lg border border-red-300 text-red-700 font-semibold hover:bg-red-50">Từ chối hồ sơ</button>
     </div>
 
-    <!-- REJECT FORM (hidden by default) -->
-    <form id="rejectForm" action="/admin/<%= application.id %>/action" method="POST" class="hidden mt-5 sm:mt-6 border-t border-slate-200 pt-5 sm:pt-6">
+    <form id="rejectForm" action="/admin/<%= app.id %>/action" method="POST" class="hidden mt-5 border-t border-slate-200 pt-5">
       <input type="hidden" name="action" value="REJECT">
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <!-- Reason Code: full width trên mobile, half trên sm -->
-        <div class="sm:col-span-1">
-          <label for="reasonCode" class="block text-sm font-medium text-slate-700 mb-1.5">
-            Lý do từ chối <span class="text-red-500">*</span>
-          </label>
-          <select
-            id="reasonCode"
-            name="reasonCode"
-            required
-            class="block w-full rounded-lg border border-slate-300 bg-white py-2 px-3 text-sm text-slate-900 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer">
+        <div>
+          <label for="reasonCode" class="block text-sm font-medium text-slate-700 mb-1">Lý do từ chối *</label>
+          <select id="reasonCode" name="reasonCode" required class="block w-full rounded-lg border border-slate-300 bg-white py-2 px-3 text-sm">
             <option value="">Chọn lý do...</option>
             <% reasonCodes.forEach(code => { %>
               <option value="<%= code %>"><%= reasonLabels[code] %></option>
             <% }) %>
           </select>
         </div>
-
-        <!-- Note: full width -->
         <div class="sm:col-span-2">
-          <label for="note" class="block text-sm font-medium text-slate-700 mb-1.5">
-            Ghi chú thêm <span class="text-slate-400 font-normal">(Không bắt buộc)</span>
-          </label>
-          <textarea
-            id="note"
-            name="note"
-            rows="3"
-            placeholder="Nhập ghi chú nếu cần thiết..."
-            class="block w-full rounded-lg border border-slate-300 bg-white py-2 px-3 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-none"></textarea>
+          <label for="note" class="block text-sm font-medium text-slate-700 mb-1">Ghi chú thêm</label>
+          <textarea id="note" name="note" rows="3" class="block w-full rounded-lg border border-slate-300 bg-white py-2 px-3 text-sm"></textarea>
         </div>
       </div>
-
-      <div class="mt-4 flex flex-col sm:flex-row gap-3">
-        <button type="submit" class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 border border-transparent font-semibold rounded-lg text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 text-sm shadow-sm cursor-pointer transition-colors duration-150">
-          <svg class="w-4 h-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.519.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" /></svg>
-          Xác nhận từ chối
-        </button>
-        <button type="button" onclick="document.getElementById('rejectForm').classList.add('hidden'); document.getElementById('toggleRejectBtn').classList.remove('bg-slate-100');" class="w-full sm:w-auto inline-flex items-center justify-center px-5 py-2.5 border border-slate-300 font-medium rounded-lg text-slate-700 bg-white hover:bg-slate-50 text-sm cursor-pointer transition-colors duration-150">
-          Huỷ
-        </button>
+      <div class="mt-4">
+        <button type="submit" class="px-5 py-2.5 rounded-lg bg-red-600 text-white font-semibold hover:bg-red-700">Xác nhận từ chối</button>
       </div>
     </form>
   </div>

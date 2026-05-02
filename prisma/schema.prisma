@@ -20,6 +20,9 @@ model LoanApplication {
   cccdUrl        String
   incomeProofUrl String?
   contractUrl    String?
+  documentsJson  Json?
+  snapshotJson   Json?
+  rawPayloadJson Json?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }

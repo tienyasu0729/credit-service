@@ -25,14 +25,30 @@ export const getDashboard = async (req: Request, res: Response) => {
     const limit = 5;
     const skip = (page - 1) * limit;
 
-    const [applications, total] = await Promise.all([
-      prisma.loanApplication.findMany({
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-      }),
-      prisma.loanApplication.count(),
-    ]);
+    let applications: any[] = [];
+    let total = 0;
+    try {
+      [applications, total] = await Promise.all([
+        prisma.loanApplication.findMany({
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limit,
+        }),
+        prisma.loanApplication.count(),
+      ]);
+    } catch (e: any) {
+      const schemaNotReady = String(e?.code || '') === 'P2022';
+      if (!schemaNotReady) throw e;
+      [applications, total] = await Promise.all([
+        prisma.$queryRawUnsafe<any[]>(`
+          SELECT "id","externalId","customerName","cccd","phone","amount","term","status","reasonCode","note","cccdUrl","incomeProofUrl","contractUrl","createdAt","updatedAt"
+          FROM "LoanApplication"
+          ORDER BY "createdAt" DESC
+          OFFSET $1 LIMIT $2
+        `, skip, limit),
+        prisma.$queryRawUnsafe<any[]>(`SELECT COUNT(*)::int AS total FROM "LoanApplication"`).then((rows) => Number(rows?.[0]?.total || 0)),
+      ]);
+    }
 
     const totalPages = Math.ceil(total / limit);
 
@@ -51,9 +67,22 @@ export const getDashboard = async (req: Request, res: Response) => {
 export const getDetail = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string;
-    const application = await prisma.loanApplication.findUnique({
-      where: { id },
-    });
+    let application: any = null;
+    try {
+      application = await prisma.loanApplication.findUnique({
+        where: { id },
+      });
+    } catch (e: any) {
+      const schemaNotReady = String(e?.code || '') === 'P2022';
+      if (!schemaNotReady) throw e;
+      const rows = await prisma.$queryRawUnsafe<any[]>(`
+        SELECT "id","externalId","customerName","cccd","phone","amount","term","status","reasonCode","note","cccdUrl","incomeProofUrl","contractUrl","createdAt","updatedAt"
+        FROM "LoanApplication"
+        WHERE "id" = $1
+        LIMIT 1
+      `, id);
+      application = rows?.[0] || null;
+    }
 
     if (!application) {
       return res.status(404).send('Loan Application not found');
@@ -77,9 +106,22 @@ export const handleAction = async (req: Request, res: Response) => {
     const reasonCode = req.body.reasonCode as string;
     const note = req.body.note as string;
 
-    const application = await prisma.loanApplication.findUnique({
-      where: { id },
-    });
+    let application: any = null;
+    try {
+      application = await prisma.loanApplication.findUnique({
+        where: { id },
+      });
+    } catch (e: any) {
+      const schemaNotReady = String(e?.code || '') === 'P2022';
+      if (!schemaNotReady) throw e;
+      const rows = await prisma.$queryRawUnsafe<any[]>(`
+        SELECT "id","externalId","status"
+        FROM "LoanApplication"
+        WHERE "id" = $1
+        LIMIT 1
+      `, id);
+      application = rows?.[0] || null;
+    }
 
     if (!application) {
       return res.status(404).send('Not found');
@@ -90,10 +132,20 @@ export const handleAction = async (req: Request, res: Response) => {
     }
 
     if (action === 'APPROVE') {
-      await prisma.loanApplication.update({
-        where: { id },
-        data: { status: 'APPROVED' },
-      });
+      try {
+        await prisma.loanApplication.update({
+          where: { id },
+          data: { status: 'APPROVED' },
+        });
+      } catch (e: any) {
+        const schemaNotReady = String(e?.code || '') === 'P2022';
+        if (!schemaNotReady) throw e;
+        await prisma.$executeRawUnsafe(`
+          UPDATE "LoanApplication"
+          SET "status" = 'APPROVED', "updatedAt" = NOW()
+          WHERE "id" = $1
+        `, id);
+      }
       // Fire and forget callback (no await necessary to hold up UI, or we can await it)
       // We will await to ensure it fires, but not rollback if it fails (handled in service)
       await sendCallback(id, application.externalId, 'APPROVED');
@@ -103,14 +155,24 @@ export const handleAction = async (req: Request, res: Response) => {
         return res.status(400).send('Valid reasonCode is required for REJECT');
       }
 
-      await prisma.loanApplication.update({
-        where: { id },
-        data: { 
-          status: 'REJECTED',
-          reasonCode,
-          note: note || null
-        },
-      });
+      try {
+        await prisma.loanApplication.update({
+          where: { id },
+          data: {
+            status: 'REJECTED',
+            reasonCode,
+            note: note || null
+          },
+        });
+      } catch (e: any) {
+        const schemaNotReady = String(e?.code || '') === 'P2022';
+        if (!schemaNotReady) throw e;
+        await prisma.$executeRawUnsafe(`
+          UPDATE "LoanApplication"
+          SET "status" = 'REJECTED', "reasonCode" = $2, "note" = $3, "updatedAt" = NOW()
+          WHERE "id" = $1
+        `, id, reasonCode, note || null);
+      }
 
       await sendCallback(id, application.externalId, 'REJECTED', reasonCode, note);
     } else {

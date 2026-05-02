@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/db';
 import { appEvents } from '../lib/events';
+import { randomUUID } from 'crypto';
 
 const isValidUrl = (urlString: string) => {
   try {
@@ -22,7 +23,8 @@ export const applyForLoan = async (req: Request, res: Response) => {
       documents,
       externalId,
       income,
-      company
+      company,
+      applicationSnapshot
     } = req.body;
 
     // 1. Validation
@@ -42,7 +44,7 @@ export const applyForLoan = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'term is required and must be > 0' });
     }
 
-    // Document URL Validation (SSRF Prevention: Only validate format, don't fetch)
+    // Document URL Validation (SSRF Prevention: only validate URL format, do not fetch)
     if (!documents || !documents.cccdUrl) {
       return res.status(400).json({ error: 'documents.cccdUrl is required' });
     }
@@ -55,24 +57,73 @@ export const applyForLoan = async (req: Request, res: Response) => {
     if (documents.contractUrl && !isValidUrl(documents.contractUrl)) {
       return res.status(400).json({ error: 'documents.contractUrl must be a valid HTTP/HTTPS URL' });
     }
+    if (Array.isArray(documents.allDocuments)) {
+      for (const item of documents.allDocuments) {
+        if (!item || typeof item !== 'object') continue;
+        if (!item.url || typeof item.url !== 'string' || !isValidUrl(item.url)) {
+          return res.status(400).json({ error: 'documents.allDocuments[*].url must be a valid HTTP/HTTPS URL' });
+        }
+      }
+    }
+    if (documents.byType && typeof documents.byType === 'object') {
+      for (const urls of Object.values(documents.byType as Record<string, unknown>)) {
+        if (!Array.isArray(urls)) continue;
+        for (const url of urls) {
+          if (typeof url !== 'string' || !isValidUrl(url)) {
+            return res.status(400).json({ error: 'documents.byType[*] must contain valid HTTP/HTTPS URLs' });
+          }
+        }
+      }
+    }
 
     // 2. Save to Database
-    const application = await prisma.loanApplication.create({
-      data: {
-        externalId: externalId || null,
-        customerName,
-        cccd,
-        phone,
-        amount,
-        term,
-        status: 'PENDING',
-        cccdUrl: documents.cccdUrl,
-        incomeProofUrl: documents.incomeProofUrl || null,
-        contractUrl: documents.contractUrl || null,
-        // Optional fields if we want to store them, but schema doesn't have income/company.
-        // Wait, schema doesn't have income or company. Let's omit or just ignore them since it's a fake bank.
-      },
-    });
+    // Backward compatible: if DB has not migrated new JSON columns yet,
+    // fallback to minimal create payload so loan apply flow is not blocked.
+    let application;
+    try {
+      application = await prisma.loanApplication.create({
+        data: {
+          externalId: externalId || null,
+          customerName,
+          cccd,
+          phone,
+          amount,
+          term,
+          status: 'PENDING',
+          cccdUrl: documents.cccdUrl,
+          incomeProofUrl: documents.incomeProofUrl || null,
+          contractUrl: documents.contractUrl || null,
+          documentsJson: documents ?? null,
+          snapshotJson: applicationSnapshot ?? null,
+          rawPayloadJson: req.body ?? null,
+        },
+      });
+    } catch (dbError: any) {
+      const msg = String(dbError?.message || '');
+      const code = String(dbError?.code || '');
+      const schemaNotReady =
+        code === 'P2022' ||
+        msg.includes('documentsJson') ||
+        msg.includes('snapshotJson') ||
+        msg.includes('rawPayloadJson');
+
+      if (!schemaNotReady) throw dbError;
+
+      console.warn('[LoanController] DB schema not ready for extended payload columns. Fallback minimal create.');
+      const newId = randomUUID();
+      const rows = await prisma.$queryRawUnsafe<any[]>(`
+        INSERT INTO "LoanApplication"
+          ("id","externalId","customerName","cccd","phone","amount","term","status","cccdUrl","incomeProofUrl","contractUrl","createdAt","updatedAt")
+        VALUES
+          ($1,$2,$3,$4,$5,$6,$7,'PENDING',$8,$9,$10,NOW(),NOW())
+        RETURNING "id","externalId","customerName","cccd","phone","amount","term","status","cccdUrl","incomeProofUrl","contractUrl","createdAt","updatedAt"
+      `, newId, externalId || null, customerName, cccd, phone, amount, term, documents.cccdUrl, documents.incomeProofUrl || null, documents.contractUrl || null);
+
+      if (!rows || rows.length === 0) {
+        throw new Error('Fallback insert failed: no row returned');
+      }
+      application = rows[0];
+    }
 
     // 3. Emit Realtime Event
     appEvents.emit('NEW_APPLICATION', application);
@@ -85,6 +136,12 @@ export const applyForLoan = async (req: Request, res: Response) => {
 
   } catch (error) {
     console.error('[LoanController] Error processing application:', error);
-    return res.status(500).json({ error: 'Internal server error' });
+    const details = error instanceof Error ? error.message : String(error);
+    const code = (error as any)?.code || null;
+    const expose = process.env.NODE_ENV !== 'production';
+    return res.status(500).json({
+      error: 'Internal server error',
+      ...(expose ? { details, code } : {}),
+    });
   }
 };
